@@ -17,13 +17,6 @@ public partial class MainWindow : Window
         _host = host;
         InitializeComponent();
 
-        SourceInitialized += (_, _) =>
-        {
-            // The settings window must not end up in saved captures either.
-            if (!WindowCaptureExclusion.Apply(new WindowInteropHelper(this).Handle))
-                ErrorLog.Write("WindowCaptureExclusion.Apply failed for main window");
-        };
-
         ToggleBox.Text = host.WorkingOrSaved(HotkeyId.Toggle);
         CaptureBox.Text = host.WorkingOrSaved(HotkeyId.Capture);
         FolderBox.Text = host.Settings.ResolveSaveFolder();
