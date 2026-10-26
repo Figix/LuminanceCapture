@@ -8,12 +8,15 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>LuminanceCapture</AssemblyName>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>
     <Using Remove="System.Windows.Forms" />
     <Using Remove="System.Drawing" />
     <ProjectReference Include="..\LuminanceCapture.Core\LuminanceCapture.Core.csproj" />
+    <Resource Include="app.ico" />
   </ItemGroup>
 
 </Project>
