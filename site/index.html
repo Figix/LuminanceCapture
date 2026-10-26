@@ -84,6 +84,10 @@ a { color: inherit; }
 .bar nav { display: flex; gap: 22px; font-size: 14.5px; }
 .bar nav a { text-decoration: none; color: var(--ink-soft); }
 .bar nav a:hover, .bar nav a:focus-visible { color: var(--ink); }
+.bar nav { margin-left: auto; }
+.blog { font-size: 14.5px; font-weight: 700; text-decoration: none; padding: 8px 16px; border: 2px solid var(--ink); border-radius: 6px; white-space: nowrap; }
+.blog:hover { background: var(--ink); color: var(--bg); }
+.blog:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 
 /* hero */
 .hero { padding-block: 40px 56px; }
@@ -257,6 +261,7 @@ footer a { text-underline-offset: 3px; }
     <a href="#lab">휘도</a>
     <a href="#install">설치</a>
   </nav>
+  <a class="blog" href="https://figix.dev/" target="_blank" rel="noopener">내 블로그 <span aria-hidden="true">↗</span></a>
 </header>
 
 <main id="top">
