@@ -47,6 +47,13 @@ public sealed class SettingsStore
             if (BoolOrNull(root, "autoStart") is { } a) result.AutoStart = a;
             if (BoolOrNull(root, "captureSound") is { } s) result.CaptureSound = s;
             result.SaveFolder = FolderOrNull(root, "saveFolder");
+
+            if (!HotkeyParser.ValidatePair(result.ToggleHotkey, result.CaptureHotkey, out _))
+            {
+                result.CaptureHotkey = AppSettings.DefaultCaptureHotkey;
+                if (!HotkeyParser.ValidatePair(result.ToggleHotkey, result.CaptureHotkey, out _))
+                    result.ToggleHotkey = AppSettings.DefaultToggleHotkey;
+            }
         }
         catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException or ArgumentException)
         {
@@ -84,7 +91,7 @@ public sealed class SettingsStore
 
     private static string? HotkeyOrNull(JsonElement root, string key) =>
         root.TryGetProperty(key, out var p) && p.ValueKind == JsonValueKind.String
-        && !string.IsNullOrWhiteSpace(p.GetString()) ? p.GetString() : null;
+        && HotkeyParser.TryParse(p.GetString(), out _, out _) ? p.GetString() : null;
 
     private static bool? BoolOrNull(JsonElement root, string key) =>
         root.TryGetProperty(key, out var p) && p.ValueKind is JsonValueKind.True or JsonValueKind.False

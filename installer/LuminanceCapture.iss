@@ -26,9 +26,6 @@ CloseApplications=yes
 RestartApplications=no
 UsePreviousAppDir=yes
 
-[Languages]
-Name: "korean"; MessagesFile: "compiler:Languages\Korean.isl"
-
 [Files]
 Source: "..\dist\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 

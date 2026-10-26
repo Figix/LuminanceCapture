@@ -115,6 +115,35 @@ public class SettingsTests : IDisposable
         Assert.True(r.CaptureSound);
     }
 
+    [Theory]
+    [InlineData("Ctrl+Foo")]
+    [InlineData("F9")]
+    [InlineData("Ctrl+A+B")]
+    public void UnparseableHotkeyFallsBackToDefaultOthersKept(string bad)
+    {
+        var folder = Path.Combine(_dir, "keep2");
+        var json = JsonSerializer.Serialize(new Dictionary<string, object?>
+        {
+            ["toggleHotkey"] = bad,
+            ["captureHotkey"] = "Alt+C",
+            ["saveFolder"] = folder,
+            ["captureSound"] = true,
+        });
+        var r = LoadRaw(json);
+        Assert.Equal("Ctrl+Alt+F9", r.ToggleHotkey);
+        Assert.Equal("Alt+C", r.CaptureHotkey);
+        Assert.Equal(folder, r.SaveFolder);
+        Assert.True(r.CaptureSound);
+    }
+
+    [Fact]
+    public void IdenticalStoredHotkeysResetCaptureToDefault()
+    {
+        var r = LoadRaw("{\"toggleHotkey\": \"Ctrl+K\", \"captureHotkey\": \"ctrl+k\"}");
+        Assert.Equal("Ctrl+K", r.ToggleHotkey);
+        Assert.Equal("Ctrl+Alt+F10", r.CaptureHotkey);
+    }
+
     [Fact]
     public void WrongTypesAndEmptyHotkeys()
     {

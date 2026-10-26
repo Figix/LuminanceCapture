@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Windows.Threading;
 using Microsoft.Win32;
 
 namespace LuminanceCapture.Core;
@@ -59,6 +60,7 @@ public sealed class GrayscaleFilter : IDisposable
     private readonly IColorEffectApi _api;
     private readonly float[] _grayMatrix = Luminance.CreateMagColorMatrix();
     private readonly object _gate = new();
+    private readonly Dispatcher? _owner = Dispatcher.FromThread(Thread.CurrentThread);
     private bool _disposed;
 
     public GrayscaleFilter() : this(new MagnificationApi(), watchSystemEvents: true) { }
@@ -104,17 +106,24 @@ public sealed class GrayscaleFilter : IDisposable
         }
     }
 
-    private void OnPowerModeChanged(object? s, PowerModeChangedEventArgs e)
+    // System events arrive on another thread; the magnification API is called from the creating (UI) thread.
+    private void ReapplyOnOwner()
     {
-        if (e.Mode == PowerModes.Resume) Reapply();
+        if (_owner is { } d && !d.CheckAccess()) d.BeginInvoke(Reapply);
+        else Reapply();
     }
 
-    private void OnSystemChanged(object? s, EventArgs e) => Reapply();
+    private void OnPowerModeChanged(object? s, PowerModeChangedEventArgs e)
+    {
+        if (e.Mode == PowerModes.Resume) ReapplyOnOwner();
+    }
+
+    private void OnSystemChanged(object? s, EventArgs e) => ReapplyOnOwner();
 
     private void OnSessionSwitch(object? s, SessionSwitchEventArgs e)
     {
         if (e.Reason is SessionSwitchReason.SessionUnlock or SessionSwitchReason.ConsoleConnect or SessionSwitchReason.RemoteConnect)
-            Reapply();
+            ReapplyOnOwner();
     }
 
     public void Dispose()
