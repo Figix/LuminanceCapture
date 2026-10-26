@@ -19,7 +19,7 @@
 
 ## 소개 페이지
 
-`site/index.html` (기획 의도와 기능 소개, 단일 HTML 파일)
+https://figix.github.io/LuminanceCapture/ (`site/index.html`, 기획 의도와 기능 소개)
 
 ## 빌드
 
