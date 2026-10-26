@@ -2,7 +2,7 @@
 
 ## 준비물
 
-윈도우 11, .NET SDK 10(`dotnet --list-sdks`에 10.x가 있어야 함), 설치 파일을 만들 때만 Inno Setup 6(`ISCC.exe`).
+윈도우 11, .NET SDK 10(`dotnet --list-sdks`에 10.x가 있어야 함), 설치 파일을 만들 때의 Inno Setup 6(`ISCC.exe`)은 빌드 스크립트가 없으면 자동으로 설치한다.
 
 ## 빌드·테스트 (저장소 루트에서)
 
@@ -35,7 +35,7 @@ dotnet run --project src/LuminanceCapture.App -- --background
 powershell -ExecutionPolicy Bypass -File tools/build-installer.ps1 -Version 1.0.0
 ```
 
-순서: (1) `dotnet publish`(win-x64, self-contained)로 `dist/publish`를 만든다. (2) `ISCC.exe`가 `%LocalAppData%\Programs\Inno Setup 6`, `Program Files (x86)\Inno Setup 6`, `Program Files\Inno Setup 6` 중 하나에 있으면 `installer/LuminanceCapture.iss`를 컴파일해 `dist/LuminanceCapture-Setup-<버전>.exe`를 만든다. 없으면 경고를 내고 종료 코드 2로 끝나며 `dist/publish`만 남는다. 순서를 바꾸면(게시 전에 컴파일) 파일이 없어 실패한다.
+순서: (1) `dotnet publish`(win-x64, self-contained)로 `dist/publish`를 만든다. (2) `ISCC.exe`를 `%LocalAppData%\Programs\Inno Setup 6`, `Program Files (x86)\Inno Setup 6`, `Program Files\Inno Setup 6` 순으로 찾고, 없으면 `winget install JRSoftware.InnoSetup --scope user`로 사용자 단위 설치한다(네트워크 필요). (3) `installer/LuminanceCapture.iss`를 컴파일해 `dist/LuminanceCapture-Setup-<버전>.exe`를 만든다. 설치 후에도 찾지 못하면 오류로 끝난다. 순서를 바꾸면(게시 전에 컴파일) 파일이 없어 실패한다.
 
 설치 파일의 동작: 관리자 권한 없이 사용자 단위 설치(`{autopf}`), 시작 메뉴 항목 1개(검색으로 실행), 설치 시작 전 실행 중인 앱 종료, 제거 시 실행 중인 앱 종료와 HKCU Run 값 삭제. 제거해도 캡처 이미지와 `%AppData%\LuminanceCapture\settings.json`은 남는다.
 
