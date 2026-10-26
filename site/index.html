@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LuminanceCapture</title>
+<meta name="description" content="작업 프로그램 바깥에서 화면 전체를 흑백으로 바꿔 보고, 같은 장면을 컬러와 흑백 한 쌍으로 저장하는 윈도우 11용 도구.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* Layout concept: a page that is itself a value study. Neutral grays do the work,
+   one cobalt accent marks what you can press, and all real color lives in the artwork. */
+:root {
+  --bg: #e9ebee;
+  --surface: #f6f7f8;
+  --ink: #14161a;
+  --ink-soft: #4a4f58;
+  --line: #c9cdd3;
+  --accent: #1d4ed8;
+  --accent-ink: #ffffff;
+  --font-display: "Bricolage Grotesque", "Noto Sans KR", system-ui, sans-serif;
+  --font-body: "Noto Sans KR", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111215;
+    --surface: #1a1c20;
+    --ink: #eceef1;
+    --ink-soft: #a3a9b3;
+    --line: #2e3138;
+    --accent: #6d95ff;
+    --accent-ink: #0b0d12;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111215;
+  --surface: #1a1c20;
+  --ink: #eceef1;
+  --ink-soft: #a3a9b3;
+  --line: #2e3138;
+  --accent: #6d95ff;
+  --accent-ink: #0b0d12;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.wrap {
+  width: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+  padding-inline: max(20px, env(safe-area-inset-left, 0px));
+}
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.12; letter-spacing: -0.02em; text-wrap: balance; margin: 0; }
+p { margin: 0; }
+a { color: inherit; }
+.mono { font-family: var(--font-mono); }
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* top bar */
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 22px; }
+.logo { font-family: var(--font-display); font-weight: 800; font-size: 19px; letter-spacing: -0.02em; text-decoration: none; display: flex; align-items: center; gap: 10px; }
+.logo i { width: 22px; height: 22px; border-radius: 50%; background: conic-gradient(var(--ink) 0 50%, transparent 0 100%); border: 2px solid var(--ink); display: inline-block; }
+.bar nav { display: flex; gap: 22px; font-size: 14.5px; }
+.bar nav a { text-decoration: none; color: var(--ink-soft); }
+.bar nav a:hover, .bar nav a:focus-visible { color: var(--ink); }
+
+/* hero */
+.hero { padding-block: 40px 56px; }
+.hero h1 { font-size: clamp(2.6rem, 7.4vw, 5.6rem); font-weight: 800; max-width: 14ch; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero .lede { margin-top: 24px; max-width: 34em; font-size: 1.15rem; color: var(--ink-soft); }
+.cta-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 30px; align-items: center; }
+.btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 14px 24px; border-radius: 6px; font-weight: 700; font-size: 16px;
+  text-decoration: none; background: var(--accent); color: var(--accent-ink);
+  border: 2px solid var(--accent);
+}
+.btn:hover { filter: brightness(1.08); }
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--ink); }
+.btn:focus-visible, .compare input:focus-visible, .picker input:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.note { font-size: 13.5px; color: var(--ink-soft); }
+
+/* before / after */
+.compare { margin-top: 44px; }
+.stage {
+  position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 70vh;
+  border-radius: 4px; overflow: hidden; background: #000;
+  --p: 50%;
+}
+.stage svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.stage .gray { filter: url(#lum709); clip-path: inset(0 0 0 var(--p)); }
+.stage .handle {
+  position: absolute; top: 0; bottom: 0; left: var(--p); width: 3px; margin-left: -1.5px;
+  background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.35); pointer-events: none;
+}
+.stage .handle::after {
+  content: ""; position: absolute; top: 50%; left: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px;
+  border-radius: 50%; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.4);
+  background-image: linear-gradient(90deg, transparent 0 calc(50% - 7px), #111 calc(50% - 7px) calc(50% - 5px), transparent 0 calc(50% + 5px), #111 calc(50% + 5px) calc(50% + 7px), transparent 0);
+}
+.stage .tag {
+  position: absolute; bottom: 14px; font-family: var(--font-mono); font-size: 12px; letter-spacing: .1em;
+  padding: 5px 10px; background: rgba(0,0,0,.62); color: #fff; border-radius: 3px; pointer-events: none;
+}
+.stage .tag.l { left: 14px; } .stage .tag.r { right: 14px; }
+.compare input[type=range] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: ew-resize; margin: 0; }
+.cap { margin-top: 14px; max-width: 46em; font-size: 15px; color: var(--ink-soft); }
+
+/* value strip */
+.strip { display: grid; grid-template-columns: repeat(9, 1fr); margin-top: 56px; border: 1px solid var(--line); }
+.strip span { height: 34px; display: block; }
+.strip-cap { display: flex; justify-content: space-between; margin-top: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); }
+
+/* sections */
+section { padding-block: 84px 0; }
+.sec-head { display: grid; gap: 14px; margin-bottom: 36px; max-width: 760px; }
+.sec-head h2 { font-size: clamp(1.9rem, 4.4vw, 3.1rem); font-weight: 700; }
+
+.why { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 56px; align-items: start; }
+.why .big { font-family: var(--font-display); font-size: clamp(1.5rem, 3vw, 2.1rem); line-height: 1.3; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
+.why .big b { background: linear-gradient(transparent 62%, color-mix(in srgb, var(--accent) 28%, transparent) 0); font-weight: 700; }
+.why .body { display: grid; gap: 18px; color: var(--ink-soft); max-width: 36em; }
+.why .body strong { color: var(--ink); font-weight: 700; }
+
+.features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 2px solid var(--ink); }
+.feat { padding: 26px 26px 30px 0; display: grid; gap: 12px; align-content: start; }
+.feat + .feat { padding-left: 26px; border-left: 1px solid var(--line); }
+.feat h3 { font-size: 1.35rem; font-weight: 700; }
+.feat p { color: var(--ink-soft); font-size: 15.5px; }
+.kbd { display: inline-flex; gap: 5px; flex-wrap: wrap; }
+kbd { font-family: var(--font-mono); font-size: 13px; font-weight: 600; background: var(--surface); border: 1px solid var(--line); border-bottom-width: 3px; border-radius: 5px; padding: 2px 8px; color: var(--ink); }
+
+/* luminance lab */
+.lab { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 28px; display: grid; gap: 22px; align-content: start; }
+.panel h3 { font-size: 1.25rem; }
+.rows { display: grid; gap: 12px; }
+.row { display: grid; grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 14px; font-family: var(--font-mono); font-size: 13.5px; }
+.row .sw { height: 40px; border-radius: 3px; border: 1px solid var(--line); }
+.row .lbl { color: var(--ink-soft); font-size: 12px; }
+.picker { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px 20px; align-items: center; }
+.picker input[type=color] { width: 84px; height: 84px; border: 1px solid var(--line); border-radius: 4px; padding: 0; background: none; cursor: pointer; }
+.readout { font-family: var(--font-mono); font-size: 14px; display: grid; gap: 4px; }
+.readout .y { font-size: 2.1rem; font-weight: 600; font-family: var(--font-display); line-height: 1; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; grid-column: 1 / -1; }
+.pair div { border: 1px solid var(--line); border-radius: 3px; padding: 10px 12px 12px; display: grid; gap: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); }
+.pair .chip { height: 56px; border-radius: 2px; }
+.formula { font-family: var(--font-mono); font-size: 14px; padding: 14px 16px; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); color: var(--ink); overflow-x: auto; white-space: nowrap; }
+
+/* capture pair */
+.files { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.file { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.file .thumb { aspect-ratio: 16 / 9; position: relative; }
+.file svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.file .thumb.g svg { filter: url(#lum709); }
+.file figcaption { padding: 12px 14px; font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-soft); overflow-wrap: anywhere; }
+.file { margin: 0; }
+.rules { margin-top: 26px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 40px; padding: 0; list-style: none; }
+.rules li { padding-left: 22px; position: relative; color: var(--ink-soft); font-size: 15.5px; }
+.rules li::before { content: ""; position: absolute; left: 0; top: 0.72em; width: 10px; height: 2px; background: var(--ink); }
+
+/* usage table */
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 15.5px; }
+th, td { text-align: left; padding: 14px 20px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+th { font-family: var(--font-mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); font-weight: 600; }
+td:first-child { white-space: nowrap; }
+
+/* install */
+.install { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 40px; align-items: start; background: var(--ink); color: var(--bg); padding: 44px; border-radius: 4px; }
+.install h2 { font-size: clamp(1.8rem, 4vw, 2.7rem); }
+.install p { color: color-mix(in srgb, var(--bg) 72%, transparent); margin-top: 14px; }
+.install .btn { background: var(--bg); color: var(--ink); border-color: var(--bg); margin-top: 24px; }
+.install ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; font-size: 15px; }
+.install li { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 14px; padding-bottom: 14px; border-bottom: 1px solid color-mix(in srgb, var(--bg) 22%, transparent); }
+.install li span:first-child { font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em; color: color-mix(in srgb, var(--bg) 60%, transparent); padding-top: 3px; }
+
+footer { padding-block: 64px 80px; display: flex; flex-wrap: wrap; gap: 14px 32px; justify-content: space-between; color: var(--ink-soft); font-size: 14px; }
+footer a { text-underline-offset: 3px; }
+
+@media (max-width: 860px) {
+  .why, .lab, .install { grid-template-columns: minmax(0, 1fr); }
+  .why { gap: 28px; }
+  .features { grid-template-columns: minmax(0, 1fr); }
+  .feat, .feat + .feat { padding: 24px 0; border-left: 0; border-top: 1px solid var(--line); }
+  .feat:first-child { border-top: 0; }
+  .files, .rules { grid-template-columns: minmax(0, 1fr); }
+  .install { padding: 28px 22px; }
+  .bar nav { display: none; }
+  section { padding-block: 64px 0; }
+}
+@media (max-width: 460px) {
+  .row { grid-template-columns: 48px minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+  .picker { grid-template-columns: minmax(0, 1fr); }
+  .install li { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+
+<!-- Same coefficients the app uses: Rec.709, applied to gamma-encoded sRGB values. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <filter id="lum709" color-interpolation-filters="sRGB" x="0" y="0" width="100%" height="100%">
+      <feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0
+                                           0.2126 0.7152 0.0722 0 0
+                                           0.2126 0.7152 0.0722 0 0
+                                           0      0      0      1 0"/>
+    </filter>
+    <symbol id="art" viewBox="0 0 800 450" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ffe08a"/>
+          <stop offset="1" stop-color="#ffb870"/>
+        </linearGradient>
+      </defs>
+      <rect width="800" height="450" fill="url(#sky)"/>
+      <circle cx="540" cy="215" r="96" fill="#e0402b"/>
+      <path d="M0 300 L120 210 L210 270 L330 170 L470 285 L590 200 L700 262 L800 215 L800 450 L0 450Z" fill="#5a6fd1"/>
+      <path d="M0 330 C140 270 260 300 380 320 C500 255 640 255 800 320 L800 450 L0 450Z" fill="#1e7846"/>
+      <path d="M0 395 C170 360 330 400 520 380 C650 366 740 380 800 372 L800 450 L0 450Z" fill="#0f3b3a"/>
+      <g fill="#f08a24"><circle cx="150" cy="372" r="15"/><circle cx="188" cy="384" r="11"/><circle cx="108" cy="388" r="9"/></g>
+      <rect x="146" y="372" width="8" height="30" fill="#0f3b3a"/>
+    </symbol>
+  </defs>
+</svg>
+
+<header class="wrap bar">
+  <a class="logo" href="#top"><i aria-hidden="true"></i>LuminanceCapture</a>
+  <nav aria-label="페이지 안내">
+    <a href="#why">기획 의도</a>
+    <a href="#features">기능</a>
+    <a href="#lab">휘도</a>
+    <a href="#install">설치</a>
+  </nav>
+</header>
+
+<main id="top">
+  <div class="wrap hero">
+    <p class="eyebrow">Windows 11 · 트레이 상주 도구</p>
+    <h1 style="margin-top:18px">작업 프로그램 <em>바깥에서</em> 화면 전체를 흑백으로.</h1>
+    <p class="lede">그리다가 밸류가 궁금할 때, 프로그램 안의 흑백 기능을 찾을 필요가 없습니다. 단축키 한 번으로 모든 화면이 흑백이 되고, 한 번 더 누르면 돌아옵니다. 찍은 장면은 컬러와 흑백 한 쌍으로 쌓입니다.</p>
+    <div class="cta-row">
+      <a class="btn" href="https://github.com/Figix/LuminanceCapture/releases/latest">설치 파일 받기 <span aria-hidden="true">↓</span></a>
+      <a class="btn ghost" href="#why">왜 만들었나</a>
+      <span class="note">무료 · 관리자 권한 불필요</span>
+    </div>
+
+    <div class="compare">
+      <div class="stage" id="stage">
+        <svg class="color" aria-hidden="true"><use href="#art"/></svg>
+        <svg class="gray" aria-hidden="true"><use href="#art"/></svg>
+        <div class="handle"></div>
+        <span class="tag l">COLOR</span><span class="tag r">GRAY · Rec.709</span>
+        <input id="slider" type="range" min="0" max="100" value="50" aria-label="컬러와 흑백 비교선 위치">
+      </div>
+      <p class="cap">가운데 선을 좌우로 끌어 보세요. 컬러에서는 선명한 붉은 해가 흑백에서는 초록 언덕과 거의 같은 회색이 되어 경계가 사라집니다. 이 차이를 매번 눈으로 확인하려고 만든 도구입니다.</p>
+    </div>
+
+    <div class="strip" role="img" aria-label="검정에서 흰색까지 아홉 단계의 밝기 스케일">
+      <span style="background:#000"></span><span style="background:#202020"></span><span style="background:#404040"></span><span style="background:#606060"></span><span style="background:#808080"></span><span style="background:#9f9f9f"></span><span style="background:#bfbfbf"></span><span style="background:#dfdfdf"></span><span style="background:#fff"></span>
+    </div>
+    <div class="strip-cap"><span>밝기 0</span><span>밝기 255</span></div>
+  </div>
+
+  <section id="why">
+    <div class="wrap">
+      <div class="why">
+        <div>
+          <p class="eyebrow" style="margin-bottom:16px">기획 의도</p>
+          <p class="big">흑백으로 보는 일은 <b>작업의 일부</b>인데, 매번 <b>도구를 찾는 일</b>이 따라붙었습니다.</p>
+        </div>
+        <div class="body">
+          <p>아트 작업을 하다 보면 자기 화면을 흑백으로 확인해야 할 때가 자주 옵니다. 그때마다 프로그램 안에서 흑백 기능을 찾아 켜고 끄는 과정이 번거로웠습니다. 프로그램이 바뀌면 위치도 이름도 달라집니다.</p>
+          <p><strong>그래서 프로그램 바깥에서, 화면 전체에 흑백을 거는 쪽을 택했습니다.</strong> 어떤 프로그램이 앞에 떠 있든 같은 단축키가 같은 일을 합니다. 캡처도 같은 자리에 넣어서, 보고 있던 장면을 그대로 컬러와 흑백으로 남깁니다.</p>
+          <p>흑백이 눈에 보이는 것과 달라지면 쓸모가 없으므로, 밝기는 사람의 시각 감도를 반영한 휘도로 계산합니다. 화면에서 본 톤과 저장된 파일의 톤은 같은 계산에서 나옵니다.</p>
+          <p>켜고 끄는 일, 틈틈이 찍어 두는 일, 설정을 바꾸는 일은 모두 GUI와 단축키로 할 수 있습니다. 평소에는 트레이에 조용히 떠 있습니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">기능</p>
+        <h2>세 가지만 합니다. 그리고 빠르게.</h2>
+      </div>
+      <div class="features">
+        <article class="feat">
+          <h3>화면 전체 흑백 토글</h3>
+          <p>모든 모니터에 한 번에 적용됩니다. 시작할 때는 항상 컬러이고, 프로그램이 끝나면 어떤 경우에도 컬러로 돌아옵니다.</p>
+          <div class="kbd"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>F9</kbd></div>
+        </article>
+        <article class="feat">
+          <h3>컬러 + 흑백 한 쌍 캡처</h3>
+          <p>누를 때마다 같은 장면의 컬러본과 흑백본이 같이 저장됩니다. 흑백을 켠 채로 찍어도 컬러 원본은 실제 컬러입니다. 연타해도 빠짐없이 쌓입니다.</p>
+          <div class="kbd"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>F10</kbd></div>
+        </article>
+        <article class="feat">
+          <h3>트레이 상주</h3>
+          <p>윈도우 시작과 함께 조용히 올라옵니다. 창을 닫아도 단축키는 살아 있고, 윈도우 키로 검색하면 설정 창이 열립니다.</p>
+          <p class="note">단축키는 설정 창에서 바꿀 수 있습니다.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="lab">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">인간 지각 휘도</p>
+        <h2>같은 밝기의 초록과 파랑은 없습니다.</h2>
+        <p style="color:var(--ink-soft)">눈은 초록에 가장 민감하고 파랑에 가장 둔합니다. 세 색을 평균내면 순수한 파랑이 실제보다 훨씬 밝은 회색이 됩니다. LuminanceCapture는 Rec.709 비율로 계산합니다.</p>
+      </div>
+      <div class="lab">
+        <div class="panel">
+          <h3>순수한 색의 흑백 값</h3>
+          <div class="rows" id="rows"></div>
+          <div class="formula">Y = 0.2126·R + 0.7152·G + 0.0722·B</div>
+        </div>
+        <div class="panel">
+          <h3>직접 골라 보기</h3>
+          <div class="picker">
+            <input id="pick" type="color" value="#e0402b" aria-label="색 선택">
+            <div class="readout">
+              <span id="rgb">rgb(224, 64, 43)</span>
+              <span class="y" id="yval">96</span>
+              <span>휘도 (0–255)</span>
+            </div>
+            <div class="pair">
+              <div><span class="chip" id="chipLum" style="background:rgb(96,96,96)"></span><span>휘도 방식 · <b id="lumTxt">96</b></span></div>
+              <div><span class="chip" id="chipAvg" style="background:rgb(112,112,112)"></span><span>단순 평균 · <b id="avgTxt">112</b></span></div>
+            </div>
+          </div>
+          <p class="note">화면에 걸리는 흑백과 저장되는 흑백 파일은 같은 계수를 씁니다. 감마 값에 그대로 적용하므로 화면에서 본 톤이 파일에 그대로 남습니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="pair">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">캡처가 쌓이는 모습</p>
+        <h2>한 번 누르면 파일 두 개.</h2>
+      </div>
+      <div class="files">
+        <figure class="file">
+          <div class="thumb"><svg aria-hidden="true"><use href="#art"/></svg></div>
+          <figcaption>2026-10-26_153012_color.png</figcaption>
+        </figure>
+        <figure class="file">
+          <div class="thumb g"><svg aria-hidden="true"><use href="#art"/></svg></div>
+          <figcaption>2026-10-26_153012_gray.png</figcaption>
+        </figure>
+      </div>
+      <ul class="rules">
+        <li>마우스가 있는 모니터를 마우스 포인터 없이, 모니터의 실제 해상도로 저장합니다.</li>
+        <li>한 폴더에 시간순으로 쌓이고, 기존 파일은 절대 덮어쓰지 않습니다.</li>
+        <li>한 쌍은 둘 다 저장되거나 둘 다 없습니다. 반쪽 파일은 남지 않습니다.</li>
+        <li>저장 알림은 작게 떴다 사라지고, 캡처 이미지에는 찍히지 않습니다.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="usage">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">사용법</p>
+        <h2>기억할 것은 단축키 두 개.</h2>
+      </div>
+      <div class="tbl">
+        <table>
+          <thead><tr><th>하고 싶은 일</th><th>방법</th><th>결과</th></tr></thead>
+          <tbody>
+            <tr><td>흑백으로 보기</td><td><span class="kbd"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>F9</kbd></span></td><td>모든 모니터가 흑백, 다시 누르면 컬러</td></tr>
+            <tr><td>장면 남기기</td><td><span class="kbd"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>F10</kbd></span></td><td>컬러·흑백 PNG 한 쌍 저장</td></tr>
+            <tr><td>설정 열기</td><td>윈도우 키 → <span class="mono">LuminanceCapture</span> 검색, 또는 트레이 아이콘 더블클릭</td><td>단축키, 저장 폴더, 자동 실행, 캡처 소리</td></tr>
+            <tr><td>완전히 끄기</td><td>트레이 아이콘 메뉴의 "종료"</td><td>창의 X 버튼은 트레이로 숨기기만 합니다</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap">
+      <div class="install">
+        <div>
+          <h2>받아서 바로 써 보세요.</h2>
+          <p>설치 파일을 실행하면 끝납니다. 관리자 권한이 필요 없고, 제거해도 찍어 둔 이미지는 그대로 남습니다.</p>
+          <a class="btn" href="https://github.com/Figix/LuminanceCapture/releases/latest">LuminanceCapture 설치 파일 <span aria-hidden="true">↓</span></a>
+        </div>
+        <ul>
+          <li><span>필요 환경</span><span>Windows 11 (64비트)</span></li>
+          <li><span>경고 화면</span><span>서명되지 않은 파일이라 윈도우 SmartScreen이 경고할 수 있습니다. "추가 정보"를 누른 뒤 "실행"을 선택하세요.</span></li>
+          <li><span>지원 범위 밖</span><span>HDR 디스플레이의 색 정확성, 독점 전체 화면 게임, DRM 보호 화면</span></li>
+          <li><span>네트워크</span><span>사용하지 않습니다. 캡처는 내 컴퓨터의 폴더에만 저장됩니다.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <span>LuminanceCapture · 아트 작업을 위한 흑백 확인 도구</span>
+  <span><a href="https://github.com/Figix/LuminanceCapture">GitHub</a> · <a href="https://github.com/Figix/LuminanceCapture/releases">릴리스</a></span>
+</footer>
+
+<script>
+(function () {
+  var Y = function (r, g, b) { return Math.floor(0.2126 * r + 0.7152 * g + 0.0722 * b + 0.5); };
+  var A = function (r, g, b) { return Math.floor((r + g + b) / 3 + 0.5); };
+
+  var stage = document.getElementById('stage');
+  var slider = document.getElementById('slider');
+  function setP() { stage.style.setProperty('--p', slider.value + '%'); }
+  slider.addEventListener('input', setP); setP();
+
+  var rows = document.getElementById('rows');
+  [['빨강', 255, 0, 0], ['초록', 0, 255, 0], ['파랑', 0, 0, 255], ['노랑', 255, 255, 0]].forEach(function (c) {
+    var y = Y(c[1], c[2], c[3]), a = A(c[1], c[2], c[3]);
+    var d = document.createElement('div'); d.className = 'row';
+    d.innerHTML =
+      '<span class="sw" style="background:rgb(' + c[1] + ',' + c[2] + ',' + c[3] + ')"></span>' +
+      '<span><span class="lbl">' + c[0] + ' → 휘도</span><br><b>' + y + '</b> <span class="sw" style="display:inline-block;width:36px;height:12px;vertical-align:middle;background:rgb(' + y + ',' + y + ',' + y + ')"></span></span>' +
+      '<span><span class="lbl">평균</span><br>' + a + ' <span class="sw" style="display:inline-block;width:36px;height:12px;vertical-align:middle;background:rgb(' + a + ',' + a + ',' + a + ')"></span></span>';
+    rows.appendChild(d);
+  });
+
+  var pick = document.getElementById('pick');
+  function upd() {
+    var h = pick.value, r = parseInt(h.slice(1, 3), 16), g = parseInt(h.slice(3, 5), 16), b = parseInt(h.slice(5, 7), 16);
+    var y = Y(r, g, b), a = A(r, g, b);
+    document.getElementById('rgb').textContent = 'rgb(' + r + ', ' + g + ', ' + b + ')';
+    document.getElementById('yval').textContent = y;
+    document.getElementById('lumTxt').textContent = y;
+    document.getElementById('avgTxt').textContent = a;
+    document.getElementById('chipLum').style.background = 'rgb(' + y + ',' + y + ',' + y + ')';
+    document.getElementById('chipAvg').style.background = 'rgb(' + a + ',' + a + ',' + a + ')';
+  }
+  pick.addEventListener('input', upd); upd();
+})();
+</script>
+</body>
+</html>

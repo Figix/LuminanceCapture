@@ -17,6 +17,10 @@
 [Releases](https://github.com/Figix/LuminanceCapture/releases)에서 `LuminanceCapture-Setup-*.exe`를 받아 실행하세요.
 관리자 권한이 필요 없고, 설치 후 윈도우 키로 `LuminanceCapture`를 검색하면 실행됩니다.
 
+## 소개 페이지
+
+`site/index.html` (기획 의도와 기능 소개, 단일 HTML 파일)
+
 ## 빌드
 
 ```
