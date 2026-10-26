@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LuminanceCapture.App/LuminanceCapture.App.csproj" />
+    <Project Path="src/LuminanceCapture.Core/LuminanceCapture.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LuminanceCapture.Tests/LuminanceCapture.Tests.csproj" />
+  </Folder>
+</Solution>
